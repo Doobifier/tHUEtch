@@ -8,14 +8,11 @@ class LinkedList {
     private $_head;
     /** @var  Node */
     private $_current;
-    /** @var  Node */
-    private $_tail;
     private $_count;
 
     public function __construct(){
         $this->_head = null;
         $this->_current = null;
-        $this->_tail= null;
         $this->_count = 0;
     }
 
