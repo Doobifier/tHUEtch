@@ -12,6 +12,7 @@ class PropertyManager {
     private static $_properties;
     private static $_filePath = '';
     private static $_fileName = 'tHUEtch.properties';
+    private static $_state    = false;
 
     /**
      * @return static PropertyManager
@@ -28,6 +29,17 @@ class PropertyManager {
         }
         return $instance;
     }
+
+    /**
+     * @param $state bool
+     *
+     * Sets the state of the update property.
+     * Used for external communication to main thread.
+     */
+    public function setState($state){
+        self::$_state = $state;
+    }
+
 
     /**
      * Loads the settings into an array with key pair value.
@@ -56,7 +68,6 @@ class PropertyManager {
                 }else if($delta > 1 && strpos($line,'#end') === false){
                     $propertyIndex = strpos($line, '=');
                     $name = substr($line,0,$propertyIndex);
-                    echo "{$name} found.\n";
                     $line = str_replace($name.'=','',$line);
                     $line = explode('|',$line);
                     $nKeys = count($keys);
@@ -82,14 +93,16 @@ class PropertyManager {
 
     /**
      * checks for an update, if so reloads the properties
+     * and saves the properties.
      */
-
-    private function updates(){
+    public function updates(){
         $file = fopen(self::$_filePath.self::$_fileName, 'r');
         $line = fgets($file);
         if(strpos($line,'true') !== false) {
             //update found
             self::loadProperties();
+            self::setState(false);
+            self::saveProperties();
         }
     }
 
@@ -147,53 +160,47 @@ class PropertyManager {
     /**
      * Saves the current properties in memory to the properties file.
      */
-    //TODO debug save function and finish tmp file process.
     public function saveProperties(){
         $tmpFile = self::$_filePath.'tHUEtch.tmp';
         $file = fopen($tmpFile,'w+');
-        fwrite($file,"#updated=false\n");
+        $state = self::$_state;
+        fwrite($file, "#update={$state}\n");
+        fwrite($file,"#live=true\n");
         $categoryKeys = array_keys(self::$_properties);
         $nCategories = count($categoryKeys);
         for($i = 0; $i < $nCategories; $i++){
             $currentCategory = $categoryKeys[$i];
-            $ucCategory = ucwords($categoryKeys);
+            $ucCategory = ucwords($currentCategory);
             fwrite($file,"#category={$ucCategory}\n");
             $category = self::$_properties[$currentCategory];
-            $properties = array_keys($category);
-            $nProperties = count($properties);
-            $syntaxString = '';
-            $propertyString = '';
-            for($j = 0; $j < $nProperties; $j++){
-                if($j = 0){
-                    $syntax = array_keys($category[$properties]);
-                    $nSyntax = count($syntax);
-                    for($k = 0; $k < $nSyntax; $k++){
-                        if($j < $nSyntax -1 ) {
-                            $syntaxString .= $syntax[$k].'|';
-                            $propertyString .= $category[$properties[$syntax[$j]]].'|';
-                        }else{
-                            $syntaxString .= $syntax[$k]."\n";
-                            $propertyString .= $category[$properties[$syntax[$j]]].'|';
-                        }
+            $itemKeys = array_keys($category);
+            $nItems = count($itemKeys);
+            for($j = 0; $j < $nItems; $j++){
+                $syntaxString = '';
+                $propertyString = '';
+                $currentItem  = $category[$itemKeys[$j]];
+                $propertyKeys = array_keys($currentItem);
+                $nProperties  = count($propertyKeys);
+                for($k = 0; $k < $nProperties; $k++){
+                    if($k < $nProperties - 1){
+                        $syntaxString .= $propertyKeys[$k].'|';
+                        $propertyString .= $currentItem[$propertyKeys[$k]].'|';
+                    }else{
+                        $syntaxString .= $propertyKeys[$k]."\n";
+                        $propertyString .= $currentItem[$propertyKeys[$k]]."\n";
                     }
-                    fwrite($file,$syntaxString);
-                    fwrite($file,$propertyString);
-                    $propertyString='';
-                }else{
-                    $syntax = array_keys($category[$properties]);
-                    $nSyntax = count($syntax);
-                    for($k = 0; $k < $nSyntax; $k++){
-                        if($j < $nSyntax -1 ) {
-                            $propertyString .= $category[$properties[$syntax[$j]]].'|';
-                        }else{
-                            $propertyString .= $category[$properties[$syntax[$j]]].'|';
-                        }
-                    }
-                    fwrite($file,$propertyString);
+
                 }
+                if($j == 0){
+                    fwrite($file, $syntaxString);
+                }
+                fwrite($file, $propertyString);
             }
+            fwrite($file,"#end\n");
         }
         fclose($file);
+        unlink(self::$_filePath.self::$_fileName);
+        rename(self::$_filePath.'tHUEtch.tmp',self::$_filePath.self::$_fileName);
     }
 
     public function dumpSettings(){
