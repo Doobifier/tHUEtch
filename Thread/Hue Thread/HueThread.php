@@ -22,7 +22,7 @@ class HueThread extends Thread {
         $this->_running = true;
         echo $this->_command."\n";
         sleep(10);
-        return true;
+        $this->_running = false;
     }
 
 }
